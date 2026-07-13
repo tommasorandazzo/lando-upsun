@@ -75,7 +75,7 @@ const getServices = options => {
   return {
     appserver: {
       type: `php:${options.php}`,
-      via: 'nginx',
+      via: options.via,
       webroot: options.webroot,
       xdebug: options.xdebug,
       composer_version: options.composer_version,
@@ -122,6 +122,7 @@ module.exports = {
     proxy: {},
     services: {},
     tooling: {},
+    via: 'apache',
     webroot: '.',
     xdebug: false,
   },
@@ -136,8 +137,11 @@ module.exports = {
       // Add appserver and database services
       options.services = _.merge({}, getServices(options), options.services);
 
-      // Proxy the nginx sidecar, since php-fpm itself has no HTTP listener to proxy to
-      if (!_.has(options, 'proxyService')) options.proxyService = 'appserver_nginx';
+      // Proxy the nginx sidecar when via is nginx (php-fpm itself has no HTTP listener
+      // to proxy to in that case); otherwise proxy the appserver directly (apache)
+      if (!_.has(options, 'proxyService')) {
+        options.proxyService = _.startsWith(options.via, 'nginx') ? 'appserver_nginx' : 'appserver';
+      }
       options.proxy = _.set(options.proxy, options.proxyService, [`${options.app}.${options._app._config.domain}`]);
 
       // Base tooling: the upsun CLI passthrough, a db shell, and framework tooling (drush/wp)

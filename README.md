@@ -70,6 +70,7 @@ See [examples/drupal](examples/drupal) and [examples/wordpress](examples/wordpre
 | `php` | `8.3` | PHP version, passed straight to `@lando/php` |
 | `framework` | `drupal` | `drupal` or `wordpress`; controls drush vs wp-cli tooling and the default pull mount |
 | `webroot` | `.` | Docroot relative to the project root |
+| `via` | `apache` | Web server: `apache[:version]` or `nginx[:version]`, passed to `@lando/php` |
 | `database` | `mysql:8.0` | Any `@lando/mysql` or `@lando/postgres` version string |
 | `xdebug` | `false` | Enable Xdebug |
 | `composer_version` | `2` | Composer major version |
