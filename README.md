@@ -80,6 +80,13 @@ See [examples/drupal](examples/drupal) and [examples/wordpress](examples/wordpre
 
 Note that `id`/`application` only feed `lando pull`. The raw `lando upsun ...` passthrough still resolves the project the CLI's own way, so on a non-Upsun clone either pass `-p <id>` to those commands or run `lando upsun project:set-remote <id>` once.
 
+## Authentication notes
+
+The Upsun CLI's default login flow opens a browser, which cannot work inside the container. Everything in this recipe therefore runs on API tokens:
+
+- `lando pull` prompts for a token on first use (and caches it for next time); it never falls back to browser login — with no valid auth it fails fast with instructions instead of hanging.
+- For raw `lando upsun ...` commands with no session, authenticate once with `lando upsun auth:api-token-login` (a terminal prompt, no browser needed) — **not** `auth:login`, which tries to open a browser.
+
 For Drupal, `drush` is installed as the [Drush Launcher](https://github.com/drush-ops/drush-launcher) rather than a specific global version: `lando drush` delegates to your project's own `vendor/bin/drush` (as declared in its `composer.json`, like virtually all modern Drupal projects do). A bare global Drush 9+ install without a real site fails at runtime, so there's no `drush` version config — pin the version in your project's `composer.json` instead.
 
 ## Customizing (e.g. Drupal multisite)

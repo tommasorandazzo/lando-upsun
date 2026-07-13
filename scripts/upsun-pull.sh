@@ -98,10 +98,22 @@ while (( "$#" )); do
   esac
 done
 
-# Validate auth
-export UPSUN_CLI_TOKEN="$UPSUN_AUTH"
+# Validate auth. We check with --no-auto-login because the CLI's default
+# fallback is an interactive browser login, which cannot work inside the
+# container; without auth we want a clear failure with instructions instead.
+if [ -n "$UPSUN_AUTH" ]; then
+  export UPSUN_CLI_TOKEN="$UPSUN_AUTH"
+else
+  unset UPSUN_CLI_TOKEN
+fi
 lando_pink "Verifying you are authenticated against Upsun..."
-upsun auth:info >/dev/null
+if ! upsun auth:info --no-auto-login --no-interaction >/dev/null 2>&1; then
+  lando_red "You are not authenticated against Upsun, and the CLI's browser login cannot work inside this container."
+  lando_info "To fix this, create an API token in the Upsun Console: open the user menu > My profile > API tokens > Create API token."
+  lando_info "Then run lando pull again and paste the token when prompted, or pass it directly: lando pull --auth <token>"
+  lando_info "See https://docs.upsun.com/administration/cli/api-tokens.html for details."
+  exit 1
+fi
 
 # Load an ssh certificate, required before any ssh/rsync-backed command (mount:download)
 lando_pink "Loading an ssh certificate..."
