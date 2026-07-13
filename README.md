@@ -71,9 +71,10 @@ See [examples/drupal](examples/drupal) and [examples/wordpress](examples/wordpre
 | `framework` | `drupal` | `drupal` or `wordpress`; controls drush vs wp-cli tooling and the default pull mount |
 | `webroot` | `.` | Docroot relative to the project root |
 | `database` | `mysql:8.0` | Any `@lando/mysql` or `@lando/postgres` version string |
-| `drush` | `11` | Drush version constraint installed via Composer (Drupal only) |
 | `xdebug` | `false` | Enable Xdebug |
 | `composer_version` | `2` | Composer major version |
+
+For Drupal, `drush` is installed as the [Drush Launcher](https://github.com/drush-ops/drush-launcher) rather than a specific global version: `lando drush` delegates to your project's own `vendor/bin/drush` (as declared in its `composer.json`, like virtually all modern Drupal projects do). A bare global Drush 9+ install without a real site fails at runtime, so there's no `drush` version config — pin the version in your project's `composer.json` instead.
 
 ## Why no dynamic environment/relationship picker like Pantheon/Acquia?
 

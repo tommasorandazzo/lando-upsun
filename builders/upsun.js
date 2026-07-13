@@ -117,7 +117,6 @@ module.exports = {
     build_root: [],
     composer_version: '2',
     database: 'mysql:8.0',
-    drush: '11',
     framework: 'drupal',
     php: '8.3',
     proxy: {},
@@ -132,13 +131,13 @@ module.exports = {
 
       // Install the upsun CLI plus framework-specific tooling (drush or wp-cli)
       options.build_root.push(utils.getCliInstallStep());
-      options.build.push(...utils.getFrameworkBuildSteps(options.framework, options.drush));
+      options.build.push(...utils.getFrameworkBuildSteps(options.framework));
 
       // Add appserver and database services
       options.services = _.merge({}, getServices(options), options.services);
 
-      // Proxy the appserver
-      if (!_.has(options, 'proxyService')) options.proxyService = 'appserver';
+      // Proxy the nginx sidecar, since php-fpm itself has no HTTP listener to proxy to
+      if (!_.has(options, 'proxyService')) options.proxyService = 'appserver_nginx';
       options.proxy = _.set(options.proxy, options.proxyService, [`${options.app}.${options._app._config.domain}`]);
 
       // Base tooling: the upsun CLI passthrough, a db shell, and framework tooling (drush/wp)
