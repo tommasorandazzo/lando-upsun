@@ -17,17 +17,19 @@ const _ = require('lodash');
 const {getUpsunPull} = require('./../lib/pull');
 const utils = require('./../lib/utils');
 
-/** @type {object} Static local database credentials used by this recipe. */
+/** @type {object} Default local database credentials used by this recipe. */
 const DB_CREDS = {user: 'upsun', password: 'upsun', database: 'upsun'};
 
 /**
  * Configuration for the MySQL command-line interface.
- * @type {object}
+ *
+ * @param {object} creds The `{user, password, database}` creds of the database service.
+ * @return {object} A tooling command definition.
  */
-const mysqlCli = {
+const getMysqlCli = creds => ({
   service: ':host',
   description: 'Drops into a MySQL shell on a database service',
-  cmd: `mysql -u${DB_CREDS.user} -p${DB_CREDS.password} ${DB_CREDS.database}`,
+  cmd: `mysql -u${creds.user} -p${creds.password} ${creds.database}`,
   options: {
     host: {
       description: 'The database service to use',
@@ -35,17 +37,19 @@ const mysqlCli = {
       alias: ['h'],
     },
   },
-};
+});
 
 /**
  * Configuration for the PostgreSQL (psql) command-line interface.
- * @type {object}
+ *
+ * @param {object} creds The `{user, password, database}` creds of the database service.
+ * @return {object} A tooling command definition.
  */
-const postgresCli = {
+const getPostgresCli = creds => ({
   service: ':host',
   description: 'Drops into a psql shell on a database service',
-  cmd: `psql -U${DB_CREDS.user} ${DB_CREDS.database}`,
-  env: {PGPASSWORD: DB_CREDS.password},
+  cmd: `psql -U${creds.user} ${creds.database}`,
+  env: {PGPASSWORD: creds.password},
   options: {
     host: {
       description: 'The database service to use',
@@ -53,7 +57,7 @@ const postgresCli = {
       alias: ['h'],
     },
   },
-};
+});
 
 /**
  * Determines the database engine (`mysql` or `postgres`) from the `database`
@@ -76,6 +80,7 @@ const getServices = options => {
     appserver: {
       type: `php:${options.php}`,
       via: options.via,
+      ssl: true,
       webroot: options.webroot,
       xdebug: options.xdebug,
       composer_version: options.composer_version,
@@ -96,11 +101,12 @@ const getServices = options => {
  * `upsun` CLI passthrough and a database shell matching the configured engine.
  *
  * @param {object} options The recipe options.
+ * @param {object} creds The final `{user, password, database}` creds of the database service.
  * @return {object} A tooling config fragment.
  */
-const getBaseTooling = options => {
+const getBaseTooling = (options, creds) => {
   const engine = getDatabaseEngine(options.database);
-  const dbTooling = engine === 'postgres' ? {psql: postgresCli} : {mysql: mysqlCli};
+  const dbTooling = engine === 'postgres' ? {psql: getPostgresCli(creds)} : {mysql: getMysqlCli(creds)};
   return _.merge({}, dbTooling, {
     upsun: {service: 'appserver', description: 'Run the Upsun CLI'},
   });
@@ -134,8 +140,10 @@ module.exports = {
       options.build_root.push(utils.getCliInstallStep());
       options.build.push(...utils.getFrameworkBuildSteps(options.framework));
 
-      // Add appserver and database services
+      // Add appserver and database services; user overrides (including custom
+      // database creds) win, so read the final creds back off the merged result
       options.services = _.merge({}, getServices(options), options.services);
+      const creds = _.merge({}, DB_CREDS, _.get(options, 'services.database.creds', {}));
 
       // Proxy the nginx sidecar when via is nginx (php-fpm itself has no HTTP listener
       // to proxy to in that case); otherwise proxy the appserver directly (apache)
@@ -145,7 +153,7 @@ module.exports = {
       options.proxy = _.set(options.proxy, options.proxyService, [`${options.app}.${options._app._config.domain}`]);
 
       // Base tooling: the upsun CLI passthrough, a db shell, and framework tooling (drush/wp)
-      options.tooling = _.merge({}, getBaseTooling(options), utils.getFrameworkTooling(options.framework), options.tooling);
+      options.tooling = _.merge({}, getBaseTooling(options, creds), utils.getFrameworkTooling(options.framework), options.tooling);
 
       // Wire up `lando pull`, pre-filling auth from any previously cached Upsun tokens
       const tokens = utils.sortTokens(options._app.upsunTokens);
@@ -156,9 +164,9 @@ module.exports = {
       }, tokens);
       options.tooling.pull.env = {
         LANDO_DB_ENGINE: getDatabaseEngine(options.database),
-        LANDO_DB_USER: DB_CREDS.user,
-        LANDO_DB_PASSWORD: DB_CREDS.password,
-        LANDO_DB_NAME: DB_CREDS.database,
+        LANDO_DB_USER: creds.user,
+        LANDO_DB_PASSWORD: creds.password,
+        LANDO_DB_NAME: creds.database,
         LANDO_DB_HOST: 'database',
       };
 
