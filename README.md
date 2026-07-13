@@ -37,6 +37,7 @@ config:
   framework: drupal   # or wordpress
   webroot: web         # docroot relative to the project root
   database: 'mysql:8.0' # or e.g. 'postgres:16'
+  id: abcdefgh1234567   # your Upsun project ID (from `upsun projects` or the console URL)
 
 plugins:
   "@lando/upsun": /path/to/lando-upsun
@@ -72,8 +73,12 @@ See [examples/drupal](examples/drupal) and [examples/wordpress](examples/wordpre
 | `webroot` | `.` | Docroot relative to the project root |
 | `via` | `apache` | Web server: `apache[:version]` or `nginx[:version]`, passed to `@lando/php` |
 | `database` | `mysql:8.0` | Any `@lando/mysql` or `@lando/postgres` version string |
+| `id` | `null` | Upsun project ID. Without it, the `upsun` CLI has to detect the project from your git remote, which only works for repos cloned from Upsun (or linked via `lando upsun project:set-remote <id>`). With it, `lando pull` passes `-p` explicitly and works regardless of where the repo was cloned from |
+| `application` | `null` | The Upsun app name to pull from; only needed on multi-app projects (passed as `--app` to relationship/mount commands) |
 | `xdebug` | `false` | Enable Xdebug |
 | `composer_version` | `2` | Composer major version |
+
+Note that `id`/`application` only feed `lando pull`. The raw `lando upsun ...` passthrough still resolves the project the CLI's own way, so on a non-Upsun clone either pass `-p <id>` to those commands or run `lando upsun project:set-remote <id>` once.
 
 For Drupal, `drush` is installed as the [Drush Launcher](https://github.com/drush-ops/drush-launcher) rather than a specific global version: `lando drush` delegates to your project's own `vendor/bin/drush` (as declared in its `composer.json`, like virtually all modern Drupal projects do). A bare global Drush 9+ install without a real site fails at runtime, so there's no `drush` version config — pin the version in your project's `composer.json` instead.
 

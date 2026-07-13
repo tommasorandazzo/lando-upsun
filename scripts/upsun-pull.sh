@@ -32,6 +32,20 @@ UPSUN_RELATIONSHIPS=()
 UPSUN_MOUNTS=()
 UPSUN_AUTH=${UPSUN_CLI_TOKEN}
 
+# Project/app context, set by builders/upsun.js from the recipe config. When a
+# project id is configured we pass it explicitly so the CLI does not need to
+# detect the project from the git remote (which only works for repos cloned
+# from Upsun or linked with project:set-remote). Same idea for the app name on
+# multi-app projects.
+UPSUN_PROJECT_FLAGS=()
+if [ -n "$UPSUN_PROJECT_ID" ]; then
+  UPSUN_PROJECT_FLAGS+=(-p "$UPSUN_PROJECT_ID")
+fi
+UPSUN_APP_FLAGS=()
+if [ -n "$UPSUN_APPLICATION" ]; then
+  UPSUN_APP_FLAGS+=(--app "$UPSUN_APPLICATION")
+fi
+
 # PARSE THE ARGZZ
 while (( "$#" )); do
   case "$1" in
@@ -95,8 +109,8 @@ upsun ssh-cert:load --no-interaction >/dev/null
 
 # Validate the environment, falling back to its parent if inactive
 lando_pink "Verifying the $UPSUN_ENVIRONMENT environment is active..."
-if ! upsun environments --pipe --no-interaction 2>/dev/null | grep -x "$UPSUN_ENVIRONMENT" >/dev/null; then
-  UPSUN_PARENT=$(upsun environment:info -e "$UPSUN_ENVIRONMENT" parent --no-interaction 2>/dev/null || echo "main")
+if ! upsun environments "${UPSUN_PROJECT_FLAGS[@]}" --pipe --no-interaction 2>/dev/null | grep -x "$UPSUN_ENVIRONMENT" >/dev/null; then
+  UPSUN_PARENT=$(upsun environment:info "${UPSUN_PROJECT_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" parent --no-interaction 2>/dev/null || echo "main")
   lando_yellow "Environment $UPSUN_ENVIRONMENT is inactive... using the parent environment ($UPSUN_PARENT) instead"
   UPSUN_ENVIRONMENT="$UPSUN_PARENT"
 fi
@@ -114,7 +128,7 @@ done
 if [ ${#UPSUN_RELATIONSHIPS[@]} -eq 0 ]; then
   lando_warn "Looks like you did not pass in any relationships!"
   lando_info "That is not a problem. Here are the relationships defined for this app:"
-  upsun relationships -e "$UPSUN_ENVIRONMENT" --no-interaction || true
+  upsun relationships "${UPSUN_PROJECT_FLAGS[@]}" "${UPSUN_APP_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" --no-interaction || true
 else
   for REL in "${UPSUN_RELATIONSHIPS[@]}"; do
     IFS=':' read -r -a REL_PARTS <<< "$REL"
@@ -126,7 +140,7 @@ else
       PGPASSWORD="$LANDO_DB_PASSWORD" psql -h "$LANDO_DB_HOST" -U "$LANDO_DB_USER" -d "$LANDO_DB_NAME" -q \
         -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
       lando_pink "Importing data from the $RELATIONSHIP relationship..."
-      upsun db:dump -e "$UPSUN_ENVIRONMENT" -r "$RELATIONSHIP" --schema "$SCHEMA" -o --no-interaction \
+      upsun db:dump "${UPSUN_PROJECT_FLAGS[@]}" "${UPSUN_APP_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" -r "$RELATIONSHIP" --schema "$SCHEMA" -o --no-interaction \
         | PGPASSWORD="$LANDO_DB_PASSWORD" psql -h "$LANDO_DB_HOST" -U "$LANDO_DB_USER" -d "$LANDO_DB_NAME" -q
     else
       TABLES=$(mysql --user="$LANDO_DB_USER" --password="$LANDO_DB_PASSWORD" --database="$LANDO_DB_NAME" --host="$LANDO_DB_HOST" \
@@ -140,7 +154,7 @@ else
 EOF
       done
       lando_pink "Importing data from the $RELATIONSHIP relationship..."
-      upsun db:dump -e "$UPSUN_ENVIRONMENT" -r "$RELATIONSHIP" --schema "$SCHEMA" -o --no-interaction \
+      upsun db:dump "${UPSUN_PROJECT_FLAGS[@]}" "${UPSUN_APP_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" -r "$RELATIONSHIP" --schema "$SCHEMA" -o --no-interaction \
         | mysql --user="$LANDO_DB_USER" --password="$LANDO_DB_PASSWORD" --database="$LANDO_DB_NAME" --host="$LANDO_DB_HOST"
     fi
   done
@@ -150,7 +164,7 @@ fi
 if [ ${#UPSUN_MOUNTS[@]} -eq 0 ]; then
   lando_warn "Looks like you did not pass in any mounts!"
   lando_info "That is not a problem. Here are the mounts defined for this app:"
-  upsun mount:list -e "$UPSUN_ENVIRONMENT" --no-interaction || true
+  upsun mount:list "${UPSUN_PROJECT_FLAGS[@]}" "${UPSUN_APP_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" --no-interaction || true
 else
   for MOUNT in "${UPSUN_MOUNTS[@]}"; do
     IFS=':' read -r -a MOUNT_PARTS <<< "$MOUNT"
@@ -158,7 +172,7 @@ else
     TARGET="${MOUNT_PARTS[1]:-$LANDO_SOURCE_DIR/$SOURCE}"
     lando_pink "Downloading files from the $SOURCE mount into $TARGET..."
     mkdir -p "$TARGET"
-    upsun mount:download -e "$UPSUN_ENVIRONMENT" --mount "$SOURCE" --target "$TARGET" -y --no-interaction
+    upsun mount:download "${UPSUN_PROJECT_FLAGS[@]}" "${UPSUN_APP_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" --mount "$SOURCE" --target "$TARGET" -y --no-interaction
   done
 fi
 

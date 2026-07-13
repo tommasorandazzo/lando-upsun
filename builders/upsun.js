@@ -119,11 +119,13 @@ module.exports = {
   name: 'upsun',
   parent: '_recipe',
   config: {
+    application: null,
     build: [],
     build_root: [],
     composer_version: '2',
     database: 'mysql:8.0',
     framework: 'drupal',
+    id: null,
     php: '8.3',
     proxy: {},
     services: {},
@@ -168,6 +170,8 @@ module.exports = {
         LANDO_DB_PASSWORD: creds.password,
         LANDO_DB_NAME: creds.database,
         LANDO_DB_HOST: 'database',
+        UPSUN_PROJECT_ID: options.id || '',
+        UPSUN_APPLICATION: options.application || '',
       };
 
       // Send downstream
