@@ -174,9 +174,17 @@ module.exports = {
         LANDO_DB_PASSWORD: creds.password,
         LANDO_DB_NAME: creds.database,
         LANDO_DB_HOST: 'database',
-        UPSUN_PROJECT_ID: options.id || '',
-        UPSUN_APPLICATION: options.application || '',
       };
+
+      // Resolve the project id/app: explicit config wins, then the host
+      // environment at compile time. When neither is set we leave the tooling
+      // env keys out entirely so a UPSUN_PROJECT_ID/UPSUN_APPLICATION already
+      // present in the container (e.g. from an env_file) still reaches the
+      // pull script instead of being clobbered with an empty string.
+      const projectId = options.id || process.env.UPSUN_PROJECT_ID || null;
+      const application = options.application || process.env.UPSUN_APPLICATION || null;
+      if (projectId) options.tooling.pull.env.UPSUN_PROJECT_ID = projectId;
+      if (application) options.tooling.pull.env.UPSUN_APPLICATION = application;
 
       // Send downstream
       super(id, options);
