@@ -1,4 +1,7 @@
-node_modules
+# Vendor only the runtime deps that lando plugin-add needs bundled;
+# GitHub installs get no npm install pass, so lodash must be committed
+node_modules/*
+!node_modules/lodash
 *.log
 .DS_Store
 docs/.vitepress/cache
