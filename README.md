@@ -76,26 +76,11 @@ See [examples/drupal](examples/drupal) and [examples/wordpress](examples/wordpre
 | `id` | `null` | Upsun project ID. Without it, the `upsun` CLI has to detect the project from your git remote, which only works for repos cloned from Upsun (or linked via `lando upsun project:set-remote <id>`). With it, `lando pull` passes `-p` explicitly and works regardless of where the repo was cloned from. Can also come from the environment — see below |
 | `application` | `null` | The Upsun app name to pull from; only needed on multi-app projects (passed as `--app` to relationship/mount commands). Can also come from the environment — see below |
 
-### Setting the project ID via the environment
+### The project ID as an environment variable
 
-Instead of hardcoding `id` in every `.lando.yml`, you can supply it as the `UPSUN_PROJECT_ID` environment variable (same for `application` via `UPSUN_APPLICATION`). Precedence, highest first:
+Since one repo generally maps to one Upsun project, `config.id` (and `config.application`) are baked into the appserver's environment as `UPSUN_PROJECT_ID` and `UPSUN_APPLICATION`. That makes them available to everything running in the container — the recipe's pull script, your own custom scripts, and shell sessions via `lando ssh` — so scripts can be written once against these variables and reused across all your Lando+Upsun projects.
 
-1. `config.id` in `.lando.yml`
-2. `UPSUN_PROJECT_ID` in your host shell when Lando compiles the app (note: this gets baked into Lando's tooling cache, so run `lando rebuild` after changing it)
-3. `UPSUN_PROJECT_ID` in the container at pull time — the recommended per-project pattern is a `.env` file:
-
-```yaml
-# .lando.yml
-env_file:
-  - .env
-```
-
-```bash
-# .env (gitignored)
-UPSUN_PROJECT_ID=abcdefgh1234567
-```
-
-This keeps the landofile committed and identical across projects/teammates while each checkout supplies its own project ID.
+If `config.id` isn't set, `UPSUN_PROJECT_ID` from your host shell at compile time is used as a fallback, and failing that, a value provided to the container some other way (e.g. an `env_file`) still reaches the pull script — the recipe never overwrites it with an empty value.
 | `xdebug` | `false` | Enable Xdebug |
 | `composer_version` | `2` | Composer major version |
 

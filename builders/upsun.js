@@ -75,7 +75,14 @@ const getDatabaseEngine = database => _.first(_.toString(database).split(':'));
  * @return {object} `{appserver, database}` Lando service definitions.
  */
 const getServices = options => {
+  // Bake the cached auth token and the configured project/app context into
+  // the appserver environment so the pull script, the raw upsun tooling and
+  // any user scripts can all rely on them
+  const environment = {};
   const cachedToken = _.get(options, '_app.meta.token', null);
+  if (cachedToken) environment.UPSUN_CLI_TOKEN = cachedToken;
+  if (options.id) environment.UPSUN_PROJECT_ID = options.id;
+  if (options.application) environment.UPSUN_APPLICATION = options.application;
   return {
     appserver: {
       type: `php:${options.php}`,
@@ -86,7 +93,7 @@ const getServices = options => {
       composer_version: options.composer_version,
       build_as_root_internal: options.build_root,
       build_internal: options.build,
-      overrides: cachedToken ? {environment: {UPSUN_CLI_TOKEN: cachedToken}} : {},
+      overrides: _.isEmpty(environment) ? {} : {environment},
     },
     database: {
       type: options.database,
@@ -142,6 +149,13 @@ module.exports = {
       options.build_root.push(utils.getCliInstallStep());
       options.build.push(...utils.getFrameworkBuildSteps(options.framework));
 
+      // Resolve the project id/app before building services: explicit config
+      // wins, with the host environment as a compile-time fallback. These get
+      // baked into the appserver environment as UPSUN_PROJECT_ID and
+      // UPSUN_APPLICATION for the pull script and anything else to use.
+      options.id = options.id || process.env.UPSUN_PROJECT_ID || null;
+      options.application = options.application || process.env.UPSUN_APPLICATION || null;
+
       // Add appserver and database services
       options.services = _.merge({}, getServices(options), options.services);
 
@@ -168,6 +182,10 @@ module.exports = {
         framework: options.framework,
         token: _.get(options, '_app.meta.token', false),
       }, tokens);
+      // The project/app context intentionally lives in the appserver
+      // environment (see getServices), not here: that way it also reaches the
+      // raw upsun tooling and user scripts, and an env_file-provided
+      // UPSUN_PROJECT_ID still works when no id is configured.
       options.tooling.pull.env = {
         LANDO_DB_ENGINE: getDatabaseEngine(dbType),
         LANDO_DB_USER: creds.user,
@@ -175,16 +193,6 @@ module.exports = {
         LANDO_DB_NAME: creds.database,
         LANDO_DB_HOST: 'database',
       };
-
-      // Resolve the project id/app: explicit config wins, then the host
-      // environment at compile time. When neither is set we leave the tooling
-      // env keys out entirely so a UPSUN_PROJECT_ID/UPSUN_APPLICATION already
-      // present in the container (e.g. from an env_file) still reaches the
-      // pull script instead of being clobbered with an empty string.
-      const projectId = options.id || process.env.UPSUN_PROJECT_ID || null;
-      const application = options.application || process.env.UPSUN_APPLICATION || null;
-      if (projectId) options.tooling.pull.env.UPSUN_PROJECT_ID = projectId;
-      if (application) options.tooling.pull.env.UPSUN_APPLICATION = application;
 
       // Send downstream
       super(id, options);
