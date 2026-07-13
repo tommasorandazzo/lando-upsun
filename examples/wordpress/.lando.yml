@@ -1,0 +1,12 @@
+name: upsun-wordpress
+recipe: upsun
+config:
+  php: '8.3'
+  framework: wordpress
+  webroot: .
+  database: 'mysql:8.0'
+
+# Instructs Lando to use the local development version of the @lando/upsun
+# plugin located at the relative path '../..' from this example's directory.
+plugins:
+  "@lando/upsun": ../..
