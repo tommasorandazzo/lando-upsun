@@ -133,15 +133,28 @@ else
   for REL in "${UPSUN_RELATIONSHIPS[@]}"; do
     IFS=':' read -r -a REL_PARTS <<< "$REL"
     RELATIONSHIP="${REL_PARTS[0]}"
-    SCHEMA="${REL_PARTS[1]:-$LANDO_DB_NAME}"
+    # Optional remote schema override (relationship:schema). When omitted we
+    # pass no --schema at all so the CLI dumps the relationship's own default
+    # schema, whatever it is named on the Upsun side.
+    REMOTE_SCHEMA="${REL_PARTS[1]:-}"
+    SCHEMA_FLAGS=()
+    if [ -n "$REMOTE_SCHEMA" ]; then
+      SCHEMA_FLAGS+=(--schema "$REMOTE_SCHEMA")
+    fi
+
+    # Dump to a local file first so a failed dump aborts (set -e) BEFORE we
+    # wipe anything in the local database
+    DUMP_FILE=$(mktemp /tmp/upsun-pull-XXXXXX.sql)
+    lando_pink "Dumping data from the $RELATIONSHIP relationship..."
+    upsun db:dump "${UPSUN_PROJECT_FLAGS[@]}" "${UPSUN_APP_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" -r "$RELATIONSHIP" \
+      "${SCHEMA_FLAGS[@]}" -o --no-interaction > "$DUMP_FILE"
 
     if [ "$LANDO_DB_ENGINE" == "postgres" ]; then
-      lando_pink "Resetting the local $SCHEMA schema..."
+      lando_pink "Resetting the local database..."
       PGPASSWORD="$LANDO_DB_PASSWORD" psql -h "$LANDO_DB_HOST" -U "$LANDO_DB_USER" -d "$LANDO_DB_NAME" -q \
         -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
-      lando_pink "Importing data from the $RELATIONSHIP relationship..."
-      upsun db:dump "${UPSUN_PROJECT_FLAGS[@]}" "${UPSUN_APP_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" -r "$RELATIONSHIP" --schema "$SCHEMA" -o --no-interaction \
-        | PGPASSWORD="$LANDO_DB_PASSWORD" psql -h "$LANDO_DB_HOST" -U "$LANDO_DB_USER" -d "$LANDO_DB_NAME" -q
+      lando_pink "Importing into the local $LANDO_DB_NAME database..."
+      PGPASSWORD="$LANDO_DB_PASSWORD" psql -h "$LANDO_DB_HOST" -U "$LANDO_DB_USER" -d "$LANDO_DB_NAME" -q < "$DUMP_FILE"
     else
       TABLES=$(mysql --user="$LANDO_DB_USER" --password="$LANDO_DB_PASSWORD" --database="$LANDO_DB_NAME" --host="$LANDO_DB_HOST" \
         -e 'SHOW TABLES' | awk '{ print $1}' | grep -v '^Tables' ) || true
@@ -153,10 +166,10 @@ else
           DROP TABLE IF EXISTS \`$t\`;
 EOF
       done
-      lando_pink "Importing data from the $RELATIONSHIP relationship..."
-      upsun db:dump "${UPSUN_PROJECT_FLAGS[@]}" "${UPSUN_APP_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" -r "$RELATIONSHIP" --schema "$SCHEMA" -o --no-interaction \
-        | mysql --user="$LANDO_DB_USER" --password="$LANDO_DB_PASSWORD" --database="$LANDO_DB_NAME" --host="$LANDO_DB_HOST"
+      lando_pink "Importing into the local $LANDO_DB_NAME database..."
+      mysql --user="$LANDO_DB_USER" --password="$LANDO_DB_PASSWORD" --database="$LANDO_DB_NAME" --host="$LANDO_DB_HOST" < "$DUMP_FILE"
     fi
+    rm -f "$DUMP_FILE"
   done
 fi
 

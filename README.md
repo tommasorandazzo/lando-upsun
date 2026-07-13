@@ -53,7 +53,7 @@ lando pull
 `lando pull` will prompt for:
 - an **Upsun API token** (cached locally after first use, so you won't be asked every time)
 - an **environment** (defaults to your current git branch, matching how Upsun maps environments to branches)
-- **relationship(s)** to import as the local database (defaults to `database`; comma-separated, or `none` to skip)
+- **relationship(s)** to import as the local database (defaults to `database`; comma-separated, or `none` to skip). Each entry is `relationship[:remote-schema]` — the schema part is only needed if you want something other than the relationship's default schema on the Upsun side
 - **mount(s)** to download (defaults to the framework's public files directory; comma-separated `source[:target]` pairs, or `none` to skip)
 
 Non-interactively:

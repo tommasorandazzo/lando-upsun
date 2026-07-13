@@ -100,12 +100,12 @@ const getServices = options => {
  * Builds the tooling entries that are common to every Upsun app: the raw
  * `upsun` CLI passthrough and a database shell matching the configured engine.
  *
- * @param {object} options The recipe options.
+ * @param {string} dbType The final database type string, e.g. `mysql:8.0`.
  * @param {object} creds The final `{user, password, database}` creds of the database service.
  * @return {object} A tooling config fragment.
  */
-const getBaseTooling = (options, creds) => {
-  const engine = getDatabaseEngine(options.database);
+const getBaseTooling = (dbType, creds) => {
+  const engine = getDatabaseEngine(dbType);
   const dbTooling = engine === 'postgres' ? {psql: getPostgresCli(creds)} : {mysql: getMysqlCli(creds)};
   return _.merge({}, dbTooling, {
     upsun: {service: 'appserver', description: 'Run the Upsun CLI'},
@@ -142,10 +142,14 @@ module.exports = {
       options.build_root.push(utils.getCliInstallStep());
       options.build.push(...utils.getFrameworkBuildSteps(options.framework));
 
-      // Add appserver and database services; user overrides (including custom
-      // database creds) win, so read the final creds back off the merged result
+      // Add appserver and database services
       options.services = _.merge({}, getServices(options), options.services);
-      const creds = _.merge({}, DB_CREDS, _.get(options, 'services.database.creds', {}));
+
+      // The landofile's top-level services: overrides are merged downstream by
+      // the app compiler, not passed into this builder, so read any user creds
+      // and database type overrides off the raw app config instead
+      const creds = _.merge({}, DB_CREDS, _.get(options, '_app.config.services.database.creds', {}));
+      const dbType = _.get(options, '_app.config.services.database.type', options.database);
 
       // Proxy the nginx sidecar when via is nginx (php-fpm itself has no HTTP listener
       // to proxy to in that case); otherwise proxy the appserver directly (apache)
@@ -155,7 +159,7 @@ module.exports = {
       options.proxy = _.set(options.proxy, options.proxyService, [`${options.app}.${options._app._config.domain}`]);
 
       // Base tooling: the upsun CLI passthrough, a db shell, and framework tooling (drush/wp)
-      options.tooling = _.merge({}, getBaseTooling(options, creds), utils.getFrameworkTooling(options.framework), options.tooling);
+      options.tooling = _.merge({}, getBaseTooling(dbType, creds), utils.getFrameworkTooling(options.framework), options.tooling);
 
       // Wire up `lando pull`, pre-filling auth from any previously cached Upsun tokens
       const tokens = utils.sortTokens(options._app.upsunTokens);
@@ -165,7 +169,7 @@ module.exports = {
         token: _.get(options, '_app.meta.token', false),
       }, tokens);
       options.tooling.pull.env = {
-        LANDO_DB_ENGINE: getDatabaseEngine(options.database),
+        LANDO_DB_ENGINE: getDatabaseEngine(dbType),
         LANDO_DB_USER: creds.user,
         LANDO_DB_PASSWORD: creds.password,
         LANDO_DB_NAME: creds.database,
