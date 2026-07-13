@@ -82,6 +82,15 @@ Note that `id`/`application` only feed `lando pull`. The raw `lando upsun ...` p
 
 For Drupal, `drush` is installed as the [Drush Launcher](https://github.com/drush-ops/drush-launcher) rather than a specific global version: `lando drush` delegates to your project's own `vendor/bin/drush` (as declared in its `composer.json`, like virtually all modern Drupal projects do). A bare global Drush 9+ install without a real site fails at runtime, so there's no `drush` version config — pin the version in your project's `composer.json` instead.
 
+## Customizing (e.g. Drupal multisite)
+
+The recipe deliberately stays minimal — one appserver, one database, one `pull` — but everything it generates can be extended or overridden from your `.lando.yml`, since landofile config is layered on top of recipe output:
+
+- **Extra services**: add more `services:` entries (a second database per multisite site, mailhog, redis, ...) exactly as in any Lando app.
+- **Extra proxy routes**: add hostnames under `proxy:` (e.g. one `.lndo.site` domain per multisite site).
+- **Custom or replacement tooling**: define your own `tooling:` commands; a landofile entry named `pull` fully replaces the recipe's pull. For multisite, a custom script that loops sites and imports each relationship into its own database service is the way to go — the recipe's built-in `pull` only targets the primary `database` service (the `-r relationship:schema` syntax selects a schema, not a service).
+- **Build steps and events**: `services.appserver.build*` and `events:` work as in any Lando app.
+
 ## Why no dynamic environment/relationship picker like Pantheon/Acquia?
 
 Pantheon and Acquia build a small API client (axios) to fetch a live list of environments and show it as an interactive dropdown before running any container command. I looked at doing the same against the Upsun API, but decided against a hand-rolled client I couldn't test against a real account. Instead, `lando pull` leans entirely on the official `upsun` CLI running *inside* the container — it already knows how to list/verify environments, relationships and mounts, and is the thing Upsun actually maintains. See `scripts/upsun-pull.sh`.
