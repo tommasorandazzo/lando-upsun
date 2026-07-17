@@ -14,6 +14,7 @@ This is a personal recipe, built for local use and as a candidate for eventual s
 - `lando pull` — database + file mounts from an Upsun environment
 - `drush`/`wp` tooling depending on `framework`
 - `mysql`/`psql` tooling depending on `database`
+- `composer`, `php`, `db-import <file>`, `db-export [file]` tooling
 - `upsun` tooling — raw passthrough to the official CLI (e.g. `lando upsun environments`)
 
 **Not yet implemented** (see [docs/usage.md](docs/usage.md) for details and rationale):

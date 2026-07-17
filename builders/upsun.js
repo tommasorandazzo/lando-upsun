@@ -115,7 +115,42 @@ const getBaseTooling = (dbType, creds) => {
   const engine = getDatabaseEngine(dbType);
   const dbTooling = engine === 'postgres' ? {psql: getPostgresCli(creds)} : {mysql: getMysqlCli(creds)};
   return _.merge({}, dbTooling, {
-    upsun: {service: 'appserver', description: 'Run the Upsun CLI'},
+    'upsun': {service: 'appserver', description: 'Run the Upsun CLI'},
+    'composer': {service: 'appserver', cmd: 'composer'},
+    'php': {service: 'appserver', cmd: 'php'},
+    'db-import <file>': {
+      service: ':host',
+      description: 'Imports a dump file into a database service',
+      cmd: '/helpers/sql-import.sh',
+      user: 'root',
+      options: {
+        'host': {
+          description: 'The database service to use',
+          default: 'database',
+          alias: ['h'],
+        },
+        'no-wipe': {
+          description: 'Do not destroy the existing database before an import',
+          boolean: true,
+        },
+      },
+    },
+    'db-export [file]': {
+      service: ':host',
+      description: 'Exports database from a database service to a file',
+      cmd: '/helpers/sql-export.sh',
+      user: 'root',
+      options: {
+        'host': {
+          description: 'The database service to use',
+          default: 'database',
+          alias: ['h'],
+        },
+        'stdout': {
+          description: 'Dump database to stdout',
+        },
+      },
+    },
   });
 };
 
