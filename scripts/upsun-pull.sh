@@ -194,7 +194,7 @@ else
   for MOUNT in "${UPSUN_MOUNTS[@]}"; do
     IFS=':' read -r -a MOUNT_PARTS <<< "$MOUNT"
     SOURCE="${MOUNT_PARTS[0]}"
-    TARGET="${MOUNT_PARTS[1]:-$LANDO_SOURCE_DIR/$SOURCE}"
+    TARGET="${MOUNT_PARTS[1]:-${LANDO_MOUNT:-/app}/$SOURCE}"
     lando_pink "Downloading files from the $SOURCE mount into $TARGET..."
     mkdir -p "$TARGET"
     upsun mount:download "${UPSUN_PROJECT_FLAGS[@]}" "${UPSUN_APP_FLAGS[@]}" -e "$UPSUN_ENVIRONMENT" --mount "$SOURCE" --target "$TARGET" -y --no-interaction
