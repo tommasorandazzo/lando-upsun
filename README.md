@@ -55,7 +55,7 @@ lando pull
 - an **Upsun API token** (cached locally after first use, so you won't be asked every time)
 - an **environment** (defaults to your current git branch, matching how Upsun maps environments to branches)
 - **relationship(s)** to import as the local database (defaults to `database`; comma-separated, or `none` to skip). Each entry is `relationship[:remote-schema]` — the schema part is only needed if you want something other than the relationship's default schema on the Upsun side
-- **mount(s)** to download (defaults to the framework's public files directory; comma-separated `source[:target]` pairs, or `none` to skip)
+- **mount(s)** to download (defaults to the framework's public files directory under your `webroot`, e.g. `web/sites/default/files`; comma-separated `source[:target]` pairs, or `none` to skip)
 
 Non-interactively:
 
@@ -103,7 +103,13 @@ The recipe deliberately stays minimal — one appserver, one database, one `pull
 - **Extra services**: add more `services:` entries (a second database per multisite site, mailhog, redis, ...) exactly as in any Lando app.
 - **Extra proxy routes**: add hostnames under `proxy:` (e.g. one `.lndo.site` domain per multisite site).
 - **Custom or replacement tooling**: define your own `tooling:` commands; a landofile entry named `pull` fully replaces the recipe's pull. For multisite, a custom script that loops sites and imports each relationship into its own database service is the way to go — the recipe's built-in `pull` only targets the primary `database` service (the `-r relationship:schema` syntax selects a schema, not a service).
-- **Build steps and events**: `services.appserver.build*` and `events:` work as in any Lando app.
+- **Build steps and events**: `services.appserver.build*` and `events:` work as in any Lando app. Note that Lando names command events after the command, so `lando pull` fires `pre-pull`/`post-pull` — **not** `pre-db-import`/`post-db-import`. Those fire only for the standalone `lando db-import` command; `lando pull` imports the database inline (it doesn't shell out to `db-import`), so hook your post-pull database work under `events.post-pull`:
+
+  ```yaml
+  events:
+    post-pull:
+      - appserver: drush cr
+  ```
 
 ## Why no dynamic environment/relationship picker like Pantheon/Acquia?
 
