@@ -215,6 +215,7 @@ module.exports = {
       options.tooling.pull = getUpsunPull({
         root: options.root,
         framework: options.framework,
+        webroot: options.webroot,
         token: _.get(options, '_app.meta.token', false),
       }, tokens);
       // The project/app context intentionally lives in the appserver
